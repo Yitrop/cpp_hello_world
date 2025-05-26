@@ -1,3 +1,4 @@
+
 pipeline{
     agent any
     parameters{
@@ -51,7 +52,7 @@ pipeline{
                 sshPublisher(
                              publishers: [
                                  sshPublisherDesc(
-                                     configName: "UbuntuServer",
+                                     configName: "ssh",
                                      transfers: [
                                         sshTransfer(sourceFiles: "${params.FILE_NAME}")
                                      ]
