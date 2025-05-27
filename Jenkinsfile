@@ -18,22 +18,12 @@ pipeline {
             }
         }
         
-        stage('Clean Workspace') {
-            steps {
-                deleteDir()
-            }
-        }
-        
         stage('Print Info') {
             steps {
                 script {
-                    try {
-                        sh 'echo "Branch: $(git rev-parse --abbrev-ref HEAD)"'
-                        sh 'echo "Hash: $(git rev-parse HEAD)"'
-                        sh 'echo "g++ version: $(g++ --version)"'
-                    } catch (Exception e) {
-                        echo "WARNING: Some info commands failed"
-                    }
+                    sh 'echo "Branch: $(git rev-parse --abbrev-ref HEAD)"'
+                    sh 'echo "Hash: $(git rev-parse HEAD)"'
+                    sh 'echo "g++ version: $(g++ --version)"'
                 }
             }
         }
@@ -41,11 +31,7 @@ pipeline {
         stage('Build Executable file') {
             steps {
                 script {
-                    try {
-                        sh "g++ app.cpp -o ${params.FILE_NAME}"
-                    } catch (Exception e) {
-                        error("Build failed: ${e.getMessage()}")
-                    }
+                    sh "g++ app.cpp -o ${params.FILE_NAME}"
                 }
             }
         }
@@ -56,14 +42,10 @@ pipeline {
             }
             steps {
                 script {
-                    try {
-                        sh """
-                           chmod u+x unit_tests.sh
-                           ./unit_tests.sh
-                           """
-                    } catch (Exception e) {
-                        error("Unit tests failed: ${e.getMessage()}")
-                    }
+                    sh """
+                       chmod u+x unit_tests.sh
+                       ./unit_tests.sh
+                       """
                 }
             }
         }
@@ -74,14 +56,10 @@ pipeline {
             }
             steps {
                 script {
-                    try {
-                        sh """
-                           chmod u+x integration_tests.sh
-                           ./integration_tests.sh
-                           """
-                    } catch (Exception e) {
-                        error("Integration tests failed: ${e.getMessage()}")
-                    }
+                    sh """
+                       chmod u+x integration_tests.sh
+                       ./integration_tests.sh
+                       """
                 }
             }
         }
@@ -89,41 +67,37 @@ pipeline {
         stage('Application Launch Test') {
             steps {
                 script {
-                    try {
-                        sh "./${params.FILE_NAME}"
-                    } catch (Exception e) {
-                        error("Application test failed: ${e.getMessage()}")
-                    }
+                    sh "./${params.FILE_NAME}"
                 }
+            }
+        }
+        
+        stage('Clean Workspace') {
+            steps {
+                deleteDir()
             }
         }
         
         stage('Deploy to Environment') {
             steps {
                 script {
-                    try {
-                        sshPublisher(
-                            publishers: [
-                                sshPublisherDesc(
-                                    configName: "ssh",
-                                    transfers: [
-                                        sshTransfer(
-                                            sourceFiles: "${params.FILE_NAME}",
-                                            remoteDirectory: "${params.ENV}",
-                                            execCommand: """
-                                                echo "Deployed ${params.FILE_NAME} to ${params.ENV} environment"
-                                            """
-                                        )
-                                    ],
-                                    usePromotionTimestamp: false,
-                                    useWorkspaceInPromotion: false,
-                                    verbose: true
-                                )
-                            ]
-                        )
-                    } catch (Exception e) {
-                        error("Deployment failed: ${e.getMessage()}")
-                    }
+                    sshPublisher(
+                        publishers: [
+                            sshPublisherDesc(
+                                configName: "ssh",
+                                transfers: [
+                                    sshTransfer(
+                                        sourceFiles: "${params.FILE_NAME}",
+                                        remoteDirectory: "${params.ENV}",
+                                        execCommand: "echo \"Deployed ${params.FILE_NAME} to ${params.ENV} environment\""
+                                    )
+                                ],
+                                usePromotionTimestamp: false,
+                                useWorkspaceInPromotion: false,
+                                verbose: true
+                            )
+                        ]
+                    )
                 }
             }
         }
@@ -132,7 +106,6 @@ pipeline {
     post {
         always {
             echo "Pipeline execution completed"
-            deleteDir()
         }
         success {
             echo "Successfully deployed ${params.FILE_NAME} to ${params.ENV}"
