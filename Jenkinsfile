@@ -1,85 +1,147 @@
 pipeline {
     agent any
+    
     parameters {
         choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Environment to deploy to')
         string(name: 'FILE_NAME', defaultValue: 'app', description: 'Имя исполняемого файла')
         booleanParam(name: 'RUN_UNIT', defaultValue: true, description: 'Запускать unit тесты')
         booleanParam(name: 'RUN_INTEGRATION', defaultValue: true, description: 'Запускать integration тесты')
     }
+    
     stages {
         stage('Print Deploy Info') {
             steps {
                 echo "Deploying to ${params.ENV}"
+                echo "Executable file name: ${params.FILE_NAME}"
+                echo "Run Unit Tests: ${params.RUN_UNIT}"
+                echo "Run Integration Tests: ${params.RUN_INTEGRATION}"
             }
         }
+        
         stage('Clean Workspace') {
             steps {
                 cleanWs()
             }
         }
+        
         stage('Print Info') {
             steps {
-                sh 'echo "Branch: $(git rev-parse --abbrev-ref HEAD)"'
-                sh 'echo "Hash: $(git rev-parse HEAD)"'
-                sh 'echo "g++ version: $(g++ --version)"'
+                script {
+                    try {
+                        sh 'echo "Branch: $(git rev-parse --abbrev-ref HEAD)"'
+                        sh 'echo "Hash: $(git rev-parse HEAD)"'
+                        sh 'echo "g++ version: $(g++ --version)"'
+                    } catch (Exception e) {
+                        echo "WARNING: Some info commands failed"
+                    }
+                }
             }
         }
+        
         stage('Build Executable file') {
             steps {
-                sh """g++ app.cpp -o ${params.FILE_NAME}"""
+                script {
+                    try {
+                        sh "g++ app.cpp -o ${params.FILE_NAME}"
+                    } catch (Exception e) {
+                        error("Build failed: ${e.getMessage()}")
+                    }
+                }
             }
         }
+        
         stage('Run Unit Tests') {
             when {
-                expression { return params.RUN_UNIT }
+                expression { return params.RUN_UNIT.toBoolean() }
             }
             steps {
-                sh """
-                   chmod u+x unit_tests.sh
-                   ./unit_tests.sh
-                   """
+                script {
+                    try {
+                        sh """
+                           chmod u+x unit_tests.sh
+                           ./unit_tests.sh
+                           """
+                    } catch (Exception e) {
+                        error("Unit tests failed: ${e.getMessage()}")
+                    }
+                }
             }
         }
+        
         stage('Run Integration Tests') {
             when {
-                expression { return params.RUN_INTEGRATION }
+                expression { return params.RUN_INTEGRATION.toBoolean() }
             }
             steps {
-                sh """
-                   chmod u+x integration_tests.sh
-                   ./integration_tests.sh
-                   """
+                script {
+                    try {
+                        sh """
+                           chmod u+x integration_tests.sh
+                           ./integration_tests.sh
+                           """
+                    } catch (Exception e) {
+                        error("Integration tests failed: ${e.getMessage()}")
+                    }
+                }
             }
         }
+        
         stage('Application Launch Test') {
             steps {
-                sh """./${params.FILE_NAME}"""
+                script {
+                    try {
+                        sh "./${params.FILE_NAME}"
+                    } catch (Exception e) {
+                        error("Application test failed: ${e.getMessage()}")
+                    }
+                }
             }
         }
+        
         stage('Deploy to Environment') {
             steps {
-                sshPublisher(
-                    publishers: [
-                        sshPublisherDesc(
-                            configName: "ssh",
-                            transfers: [
-                                sshTransfer(
-                                    sourceFiles: "${params.FILE_NAME}",
-                                    remoteDirectory: "${params.ENV}"
+                script {
+                    try {
+                        sshPublisher(
+                            publishers: [
+                                sshPublisherDesc(
+                                    configName: "ssh",
+                                    transfers: [
+                                        sshTransfer(
+                                            sourceFiles: "${params.FILE_NAME}",
+                                            remoteDirectory: "${params.ENV}",
+                                            execCommand: """
+                                                echo "Deployed ${params.FILE_NAME} to ${params.ENV} environment"
+                                                
+                                            """
+                                        )
+                                    ],
+                                    usePromotionTimestamp: false,
+                                    useWorkspaceInPromotion: false,
+                                    verbose: true
                                 )
                             ]
                         )
-                    ]
-                )
+                    } catch (Exception e) {
+                        error("Deployment failed: ${e.getMessage()}")
+                    }
+                }
             }
         }
     }
+    
     post {
+        always {
+            echo "Pipeline execution completed"
+            cleanWs(cleanWhenAborted: true, cleanWhenFailure: true, cleanWhenNotBuilt: true, cleanWhenSuccess: true, cleanWhenUnstable: true)
+        }
         success {
-            echo "Successfully deployed to ${params.ENV}"
+            echo "Successfully deployed ${params.FILE_NAME} to ${params.ENV}"
+            
         }
         failure {
-            echo "Deployment to ${params.ENV} failed"
+            echo "Failed to deploy ${params.FILE_NAME} to ${params.ENV}"
+            
         }
     }
 }
