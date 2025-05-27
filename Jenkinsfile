@@ -20,7 +20,7 @@ pipeline {
         
         stage('Clean Workspace') {
             steps {
-                cleanWs()
+                deleteDir()
             }
         }
         
@@ -112,7 +112,6 @@ pipeline {
                                             remoteDirectory: "${params.ENV}",
                                             execCommand: """
                                                 echo "Deployed ${params.FILE_NAME} to ${params.ENV} environment"
-                                                
                                             """
                                         )
                                     ],
@@ -133,15 +132,13 @@ pipeline {
     post {
         always {
             echo "Pipeline execution completed"
-            cleanWs(cleanWhenAborted: true, cleanWhenFailure: true, cleanWhenNotBuilt: true, cleanWhenSuccess: true, cleanWhenUnstable: true)
+            deleteDir()
         }
         success {
             echo "Successfully deployed ${params.FILE_NAME} to ${params.ENV}"
-            
         }
         failure {
             echo "Failed to deploy ${params.FILE_NAME} to ${params.ENV}"
-            
         }
     }
 }
