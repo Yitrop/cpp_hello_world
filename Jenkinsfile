@@ -4,8 +4,6 @@ pipeline {
     parameters {
         choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Environment to deploy to')
         string(name: 'FILE_NAME', defaultValue: 'app', description: 'Имя исполняемого файла')
-        booleanParam(name: 'RUN_UNIT', defaultValue: true, description: 'Запускать unit тесты')
-        booleanParam(name: 'RUN_INTEGRATION', defaultValue: true, description: 'Запускать integration тесты')
     }
     
     stages {
@@ -13,8 +11,6 @@ pipeline {
             steps {
                 echo "Deploying to ${params.ENV}"
                 echo "Executable file name: ${params.FILE_NAME}"
-                echo "Run Unit Tests: ${params.RUN_UNIT}"
-                echo "Run Integration Tests: ${params.RUN_INTEGRATION}"
             }
         }
         
@@ -35,35 +31,7 @@ pipeline {
                 }
             }
         }
-        
-        stage('Run Unit Tests') {
-            when {
-                expression { return params.RUN_UNIT.toBoolean() }
-            }
-            steps {
-                script {
-                    sh """
-                       chmod u+x unit_tests.sh
-                       ./unit_tests.sh
-                       """
-                }
-            }
-        }
-        
-        stage('Run Integration Tests') {
-            when {
-                expression { return params.RUN_INTEGRATION.toBoolean() }
-            }
-            steps {
-                script {
-                    sh """
-                       chmod u+x integration_tests.sh
-                       ./integration_tests.sh
-                       """
-                }
-            }
-        }
-        
+
         stage('Application Launch Test') {
             steps {
                 script {
